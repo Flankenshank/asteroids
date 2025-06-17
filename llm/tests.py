@@ -1,21 +1,28 @@
 from functions.get_files_info import get_files_info, get_file_content
 from functions.write_files import write_file
+from functions.run_python import run_python_file
 
 
 def test():
-    results = write_file("calculator", "lorem.txt", "wait, this isn't lorem ipsum")
+    results = run_python_file("calculator", "main.py")
     print(results)
 
 
 def test2():
-    result2 = write_file("calculator", "pkg/morelorem.txt", "lorem ipsum dolor sit amet")
+    result2 = run_python_file("calculator", "tests.py")
     print(result2)
 
 def test3():
-    result3 = write_file("calculator", "/tmp/temp.txt", "this should not be allowed")
+    result3 = run_python_file("calculator", "../main.py")
     print(result3)
+
+def test4():
+    result4 = run_python_file("calculator", "nonexistent.py")
+    print(result4)
 
 if __name__ == "__main__":
     test()
     test2()
     test3()
+    test4()
+    print("Ran all run_python_file tests!")
