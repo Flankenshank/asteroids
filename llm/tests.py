@@ -4,13 +4,12 @@ from functions.run_python import run_python_file
 
 
 def test():
-    results = run_python_file("calculator", "main.py")
+    results = get_files_info({'directory': '.'})
     print(results)
 
 
 def test2():
-    result2 = run_python_file("calculator", "tests.py")
-    print(result2)
+    result2 = get_files_info({'directory': 'pkg'})
 
 def test3():
     result3 = run_python_file("calculator", "../main.py")
