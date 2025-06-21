@@ -1,5 +1,10 @@
 import os
 import subprocess
+from write_files import write_file
+from get_files_info import get_file_content, get_files_info
+from tests import run_tests
+from google import genai
+from google.genai import types
 
 def run_python_file(working_directory, file_path):
 
@@ -39,3 +44,51 @@ def run_python_file(working_directory, file_path):
         return "Error: executing Python file: Timeout expired"
     except Exception as e:
         return f"Error: executing Python file: {e}"
+    
+def run_tests(filename, working_directory):
+    abs_working_dir = os.path.abspath(working_directory)    
+    try:
+        result = subprocess.run(["python3", filename],
+                                cwd=abs_working_dir,
+                                capture_output=True,
+                                text=True)
+    except Exception as e:
+        return f"Error running tests: {str(e)}"
+    return result.stdout
+
+def call_function(function_call_part, verbose=False):
+    if verbose:
+        print(f"Calling function: {function_call_part.name}({function_call_part.args})")
+    else:
+        print(f" - Calling function: {function_call_part.name}")
+    
+    function_map = {
+        "write_file": write_file,
+        "get_files_info": get_files_info,
+        "get_file_content": get_file_content,
+        "run_tests": run_tests
+        }
+    
+    if function_call_part.name in function_map:
+        function_to_call = function_map[function_call_part.name]
+        args_with_working_dir = {**function_call_part.args, "working_directory": "./calculator"}
+        function_result = function_to_call(**args_with_working_dir)
+        return types.Content(
+            role="tool",
+            parts=[
+                types.Part.from_function_response(
+                name=function_call_part.name,
+                response={"result": function_result},
+                )
+            ],
+        )
+    else:
+        return types.Content(
+    role="tool",
+    parts=[
+        types.Part.from_function_response(
+            name=function_call_part.name,
+            response={"error": f"Unknown function: {function_call_part.name}"},
+        )
+    ],
+)

@@ -4,6 +4,8 @@ from dotenv import load_dotenv, find_dotenv
 from google import genai
 from google.genai import types
 load_dotenv()
+from functions import get_files_info, get_file_content, call_function, run_tests, run_python_file, write_file
+
 api_key = os.environ.get("GEMINI_API_KEY")
 model_name = "gemini-1.5-flash"
 client = genai.Client(api_key=api_key)
@@ -107,8 +109,14 @@ response = client.models.generate_content(
     config=config,
 )
 
+verbose = True
 if response.function_calls:
     for func in response.function_calls:
-        print (f"Calling function: {func.name}({func.args})")
+        function_called = call_function(func, verbose)
+        if function_called.parts[0].function_response.response:
+            if verbose:
+                print(f"-> {function_called.parts[0].function_response.response}")
+        else:
+            raise Exception ("function not valid")
 else:
     print(response.text)
