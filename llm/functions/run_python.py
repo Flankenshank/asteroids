@@ -13,7 +13,7 @@ def run_python_file(working_directory, file_path, args=None):
     if not file_path.endswith(".py"):
         return f'Error: "{file_path}" is not a Python file.'
     try:
-        commands = ["python", abs_file_path]
+        commands = ["python3", abs_file_path]
         if args:
             commands.extend(args)
         result = subprocess.run(
