@@ -1,122 +1,70 @@
-import os
 import sys
-from dotenv import load_dotenv, find_dotenv
+import os
 from google import genai
 from google.genai import types
-load_dotenv()
-from functions import get_files_info, get_file_content, call_function, run_tests, run_python_file, write_file
+from dotenv import load_dotenv
 
-api_key = os.environ.get("GEMINI_API_KEY")
-model_name = "gemini-1.5-flash"
-client = genai.Client(api_key=api_key)
+from prompts import system_prompt
+from functions.call_function import call_function, available_functions
 
-schema_get_files_info = types.FunctionDeclaration(
-    name="get_files_info",
-    description="Lists files in the specified directory along with their sizes, constrained to the working directory.",
-    parameters=types.Schema(
-        type=types.Type.OBJECT,
-        properties={
-            "directory": types.Schema(
-                type=types.Type.STRING,
-                description="The directory to list files from, relative to the working directory. If not provided, lists files in the working directory itself.",
-            ),
-        },
-        required=["directory"]
-    ),
-)
 
-schema_get_file_content = types.FunctionDeclaration(
-    name="get_file_content",
-    description="Read file contents",
-    parameters=types.Schema(
-        type=types.Type.OBJECT,
-        properties={
-            "directory": types.Schema(
-                type=types.Type.STRING,
-                description="Read file contents.",
-            ),
-        },
-        required=["directory"]
-    ),
-)
+def main():
+    load_dotenv()
 
-schema_run_python_file = types.FunctionDeclaration(
-    name="run_python_file",
-    description="Execute Python files with optional arguments",
-    parameters=types.Schema(
-        type=types.Type.OBJECT,
-        properties={
-            "directory": types.Schema(
-                type=types.Type.STRING,
-                description="Execute Python files with optional arguments.",
-            ),
-        },
-        required=["directory"]
-    ),
-)
+    verbose = "--verbose" in sys.argv
+    args = [arg for arg in sys.argv[1:] if not arg.startswith("--")]
 
-schema_write_file = types.FunctionDeclaration(
-    name="write_file",
-    description="Write or overwrite files",
-    parameters=types.Schema(
-        type=types.Type.OBJECT,
-        properties={
-            "directory": types.Schema(
-                type=types.Type.STRING,
-                description="Write or overwrite files.",
-            ),
-        },
-        required=["directory"]
-    ),
-)
+    if not args:
+        print("AI Code Assistant")
+        print('\nUsage: python main.py "your prompt here" [--verbose]')
+        print('Example: python main.py "How do I fix the calculator?"')
+        sys.exit(1)
 
-available_functions = types.Tool(
-    function_declarations=[
-        schema_get_files_info,
-        schema_get_file_content,
-        schema_run_python_file,
-        schema_write_file
+    api_key = os.environ.get("GEMINI_API_KEY")
+    client = genai.Client(api_key=api_key)
+
+    user_prompt = " ".join(args)
+
+    if verbose:
+        print(f"User prompt: {user_prompt}\n")
+
+    messages = [
+        types.Content(role="user", parts=[types.Part(text=user_prompt)]),
     ]
-)
 
-system_prompt = """
-You are a helpful AI coding agent.
+    generate_content(client, messages, verbose)
 
-When a user asks a question or makes a request, make a function call plan. You can perform the following operations:
 
-- List files and directories
+def generate_content(client, messages, verbose):
+    response = client.models.generate_content(
+        model="gemini-2.0-flash-001",
+        contents=messages,
+        config=types.GenerateContentConfig(
+            tools=[available_functions], system_instruction=system_prompt
+        ),
+    )
+    if verbose:
+        print("Prompt tokens:", response.usage_metadata.prompt_token_count)
+        print("Response tokens:", response.usage_metadata.candidates_token_count)
 
-All paths you provide should be relative to the working directory. You do not need to specify the working directory in your function calls as it is automatically injected for security reasons.
-"""
+    if not response.function_calls:
+        return response.text
 
-config = types.GenerateContentConfig(
-    tools=[available_functions], system_instruction=system_prompt
-)
+    function_responses = []
+    for function_call_part in response.function_calls:
+        function_call_result = call_function(function_call_part, verbose)
+        if (
+            not function_call_result.parts
+            or not function_call_result.parts[0].function_response
+        ):
+            raise Exception("empty function call result")
+        if verbose:
+            print(f"-> {function_call_result.parts[0].function_response.response}")
+        function_responses.append(function_call_result.parts[0])
 
-if len(sys.argv) < 2:
-    print("No prompt given")
-    sys.exit(1)
+    if not function_responses:
+        raise Exception("no function responses generated, exiting.")
 
-user_prompt = " ".join(sys.argv[1:])
 
-messages = [
-    types.Content(role="user", parts=[types.Part(text=user_prompt)]),
-]
-
-response = client.models.generate_content(
-    model=model_name,
-    contents=messages,
-    config=config,
-)
-
-verbose = True
-if response.function_calls:
-    for func in response.function_calls:
-        function_called = call_function(func, verbose)
-        if function_called.parts[0].function_response.response:
-            if verbose:
-                print(f"-> {function_called.parts[0].function_response.response}")
-        else:
-            raise Exception ("function not valid")
-else:
-    print(response.text)
+if __name__ == "__main__":
+    main()

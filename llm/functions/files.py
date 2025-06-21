@@ -1,5 +1,4 @@
 import os
-from google.genai import types
 
 
 def get_files_info(working_directory, directory=None):
@@ -25,17 +24,25 @@ def get_files_info(working_directory, directory=None):
     except Exception as e:
         return f"Error listing files: {e}"
 
+def get_file_content(working_directory, file_path):
+    abs_working_dir = os.path.abspath(working_directory)
+    abs_file_path = os.path.abspath(os.path.join(os.path.abspath(working_directory), file_path))
+    if not (abs_file_path == abs_working_dir or abs_file_path.startswith(abs_working_dir + os.sep)):
+        return f'Error: Cannot read "{file_path}" as it is outside the permitted working directory'
+    
+    if not os.path.isfile(abs_file_path):
+        return f'Error: File not found or is not a regular file: "{file_path}"'
+    
+    try:
+        MAX_CHARS = 10000
+        with open(abs_file_path, "r") as f:
+            file_content_string = f.read(MAX_CHARS)
+            extra = f.read(1)
+            if extra != '':
+                file_content_string += '[...File "{file_path}" truncated at 10000 characters]'
+            return file_content_string
 
-schema_get_files_info = types.FunctionDeclaration(
-    name="get_files_info",
-    description="Lists files in the specified directory along with their sizes, constrained to the working directory.",
-    parameters=types.Schema(
-        type=types.Type.OBJECT,
-        properties={
-            "directory": types.Schema(
-                type=types.Type.STRING,
-                description="The directory to list files from, relative to the working directory. If not provided, lists files in the working directory itself.",
-            ),
-        },
-    ),
-)
+    except Exception as e:
+        return f"Error: {e}"
+    
+    

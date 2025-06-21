@@ -1,94 +1,61 @@
 import os
 import subprocess
-from write_files import write_file
-from get_files_info import get_file_content, get_files_info
-from tests import run_tests
-from google import genai
 from google.genai import types
 
-def run_python_file(working_directory, file_path):
 
+def run_python_file(working_directory, file_path, args=None):
     abs_working_dir = os.path.abspath(working_directory)
-    abs_file_path = os.path.abspath(os.path.join(os.path.abspath(working_directory), file_path))
-    if not (abs_file_path == abs_working_dir or abs_file_path.startswith(abs_working_dir + os.sep)):
+    abs_file_path = os.path.abspath(os.path.join(working_directory, file_path))
+    if not abs_file_path.startswith(abs_working_dir):
         return f'Error: Cannot execute "{file_path}" as it is outside the permitted working directory'
-    
-    if not os.path.isfile(abs_file_path):
+    if not os.path.exists(abs_file_path):
         return f'Error: File "{file_path}" not found.'
-    
-    file_name, file_extension = os.path.splitext(file_path) 
-    if file_extension != '.py':
+    if not file_path.endswith(".py"):
         return f'Error: "{file_path}" is not a Python file.'
-    
     try:
+        commands = ["python", abs_file_path]
+        if args:
+            commands.extend(args)
         result = subprocess.run(
-            ["python3", file_path],
-            cwd=working_directory,
-            timeout=30,
+            commands,
             capture_output=True,
             text=True,
-            check=False
+            timeout=30,
+            cwd=abs_working_dir,
         )
-        lines = []
+        output = []
         if result.stdout:
-            lines.append("STDOUT:\n" + result.stdout.rstrip())
+            output.append(f"STDOUT:\n{result.stdout}")
         if result.stderr:
-            lines.append("STDERR:\n" + result.stderr.rstrip())
+            output.append(f"STDERR:\n{result.stderr}")
+
         if result.returncode != 0:
-            lines.append(f"Process exited with code {result.returncode}")
-        if not lines:
-            return "No output produced."
-        return "\n".join(lines)
-            
-    except subprocess.TimeoutExpired:
-        return "Error: executing Python file: Timeout expired"
+            output.append(f"Process exited with code {result.returncode}")
+
+        return "\n".join(output) if output else "No output produced."
     except Exception as e:
         return f"Error: executing Python file: {e}"
-    
-def run_tests(filename, working_directory):
-    abs_working_dir = os.path.abspath(working_directory)    
-    try:
-        result = subprocess.run(["python3", filename],
-                                cwd=abs_working_dir,
-                                capture_output=True,
-                                text=True)
-    except Exception as e:
-        return f"Error running tests: {str(e)}"
-    return result.stdout
 
-def call_function(function_call_part, verbose=False):
-    if verbose:
-        print(f"Calling function: {function_call_part.name}({function_call_part.args})")
-    else:
-        print(f" - Calling function: {function_call_part.name}")
-    
-    function_map = {
-        "write_file": write_file,
-        "get_files_info": get_files_info,
-        "get_file_content": get_file_content,
-        "run_tests": run_tests
-        }
-    
-    if function_call_part.name in function_map:
-        function_to_call = function_map[function_call_part.name]
-        args_with_working_dir = {**function_call_part.args, "working_directory": "./calculator"}
-        function_result = function_to_call(**args_with_working_dir)
-        return types.Content(
-            role="tool",
-            parts=[
-                types.Part.from_function_response(
-                name=function_call_part.name,
-                response={"result": function_result},
-                )
-            ],
-        )
-    else:
-        return types.Content(
-    role="tool",
-    parts=[
-        types.Part.from_function_response(
-            name=function_call_part.name,
-            response={"error": f"Unknown function: {function_call_part.name}"},
-        )
-    ],
+
+schema_run_python_file = types.FunctionDeclaration(
+    name="run_python_file",
+    description="Executes a Python file within the working directory and returns the output from the interpreter.",
+    parameters=types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "file_path": types.Schema(
+                type=types.Type.STRING,
+                description="Path to the Python file to execute, relative to the working directory.",
+            ),
+            "args": types.Schema(
+                type=types.Type.ARRAY,
+                items=types.Schema(
+                    type=types.Type.STRING,
+                    description="Optional arguments to pass to the Python file.",
+                ),
+                description="Optional arguments to pass to the Python file.",
+            ),
+        },
+        required=["file_path"],
+    ),
 )
