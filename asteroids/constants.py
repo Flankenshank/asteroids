@@ -1,5 +1,8 @@
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
+print("Starting Asteroids")
+print("Screen width: 1280")
+print("Screen height: 720")
 
 ASTEROID_MIN_RADIUS = 20
 ASTEROID_KINDS = 3

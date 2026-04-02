@@ -1,0 +1,23 @@
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+    "strings"
+)
+
+func startRepl() {
+	scanner := bufio.NewScanner(os.Stdin)
+
+	for {
+		fmt.Print ("Pokedex > ")
+		scanner.Scan()
+		text := scanner.Text()
+		words := strings.Fields(strings.ToLower(strings.TrimSpace(text)))
+		if len(words) == 0 {
+			continue
+		}
+		fmt.Println("Your command was:", words[0])
+		}
+	}

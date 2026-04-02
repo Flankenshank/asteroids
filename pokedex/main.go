@@ -1,7 +1,15 @@
 package main
 
-import "fmt"
+import (
+	"time"
+	"github.com/Flankenshank/pokedexcli/internal/pokeapi"
+)
 
 func main() {
-fmt.Println("Hello, World!")
+	pokeClient := pokeapi.NewClient(5*time.Second, 5*time.Minute)
+	cfg := &config{
+		pokeapiClient: pokeClient,
+	}
+	
+	startRepl(cfg)
 }
