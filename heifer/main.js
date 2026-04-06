@@ -1,5 +1,6 @@
 const name = 'NAME'
 
 import { moo } from "./moo.js";
+import { say } from 'cowsay';
 
-console.log(moo(name));
+console.log(say({text: moo(name)}));
